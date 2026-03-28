@@ -122,5 +122,6 @@ export type AdminUserSearchResult = {
   userId: string;
   name: string;
   email: string;
+  username?: string;
   avatarUrl?: string;
 };
