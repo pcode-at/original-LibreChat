@@ -47,12 +47,19 @@ export function createUserMethods(mongoose: typeof import('mongoose')) {
   async function findUsers(
     searchCriteria: FilterQuery<IUser>,
     fieldsToSelect?: string | string[] | null,
+    options?: { limit?: number; offset?: number },
   ): Promise<IUser[]> {
     const User = mongoose.models.User;
     const normalizedCriteria = normalizeEmailInCriteria(searchCriteria);
     const query = User.find(normalizedCriteria);
     if (fieldsToSelect) {
       query.select(fieldsToSelect);
+    }
+    if (options?.offset) {
+      query.skip(options.offset);
+    }
+    if (options?.limit) {
+      query.limit(options.limit);
     }
     return (await query.lean()) as IUser[];
   }
