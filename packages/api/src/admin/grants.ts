@@ -134,10 +134,14 @@ export function createAdminGrantsHandlers(deps: AdminGrantsDeps) {
       }
 
       const principals = await getUserPrincipals(user);
+      const entries = Object.entries(READ_CAPABILITY_BY_TYPE);
+      const checks = await Promise.all(
+        entries.map(([, cap]) => hasCapabilityForPrincipals({ principals, capability: cap })),
+      );
       const allowedTypes = new Set<string>();
-      for (const [type, cap] of Object.entries(READ_CAPABILITY_BY_TYPE)) {
-        if (await hasCapabilityForPrincipals({ principals, capability: cap })) {
-          allowedTypes.add(type);
+      for (let i = 0; i < entries.length; i++) {
+        if (checks[i]) {
+          allowedTypes.add(entries[i][0]);
         }
       }
 
