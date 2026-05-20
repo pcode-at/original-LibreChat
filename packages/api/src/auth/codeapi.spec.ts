@@ -33,6 +33,7 @@ const ENV_KEYS = [
   'CODEAPI_JWT_SINGLE_TENANT_ID',
   'TENANT_ISOLATION_STRICT',
   'OPENID_REUSE_TOKENS',
+  'LIBRECHAT_CODE_API_KEY',
 ] as const;
 
 type Claims = Record<string, unknown>;
@@ -118,6 +119,7 @@ describe('Code API JWT minting', () => {
     delete process.env.CODEAPI_JWT_SINGLE_TENANT_ID;
     delete process.env.TENANT_ISOLATION_STRICT;
     delete process.env.OPENID_REUSE_TOKENS;
+    delete process.env.LIBRECHAT_CODE_API_KEY;
     mockGetTenantId.mockReset();
   });
 
@@ -277,5 +279,29 @@ describe('Code API JWT minting', () => {
     process.env.CODEAPI_AUTH_PROVIDER = 'legacy-api-key';
     delete process.env.CODEAPI_JWT_ENABLED;
     await expect(getCodeApiAuthHeaders(baseRequest())).resolves.toEqual({});
+  });
+
+  it('falls back to LIBRECHAT_CODE_API_KEY as x-api-key when JWT auth is disabled', async () => {
+    process.env.CODEAPI_AUTH_PROVIDER = 'legacy-api-key';
+    delete process.env.CODEAPI_JWT_ENABLED;
+    process.env.LIBRECHAT_CODE_API_KEY = '  legacy-secret  ';
+
+    await expect(getCodeApiAuthHeaders(baseRequest())).resolves.toEqual({
+      'x-api-key': 'legacy-secret',
+    });
+    await expect(getCodeApiAuthHeaders()).resolves.toEqual({
+      'x-api-key': 'legacy-secret',
+    });
+
+    process.env.LIBRECHAT_CODE_API_KEY = '   ';
+    await expect(getCodeApiAuthHeaders(baseRequest())).resolves.toEqual({});
+  });
+
+  it('prefers minted JWT over LIBRECHAT_CODE_API_KEY when both are configured', async () => {
+    process.env.LIBRECHAT_CODE_API_KEY = 'should-not-be-used';
+
+    await expect(getCodeApiAuthHeaders(baseRequest())).resolves.toEqual({
+      Authorization: expect.stringMatching(/^Bearer /),
+    });
   });
 });
