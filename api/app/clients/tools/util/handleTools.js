@@ -10,6 +10,7 @@ const {
   buildImageToolContext,
   buildWebSearchContext,
   buildWebSearchDynamicContext,
+  filterCodeExecutionLanguages,
 } = require('@librechat/api');
 const {
   Tools,
@@ -283,11 +284,25 @@ const loadTools = async ({
         if (files?.length) {
           primedCodeFiles = files;
         }
-        return createCodeExecutionTool({
+        const codeTool = createCodeExecutionTool({
           user_id: user,
           files,
           authHeaders: () => getCodeApiAuthHeaders(options.req),
         });
+        const langEnum = codeTool?.schema?.properties?.lang?.enum;
+        if (Array.isArray(langEnum)) {
+          const filtered = filterCodeExecutionLanguages(langEnum);
+          if (filtered) {
+            codeTool.schema = {
+              ...codeTool.schema,
+              properties: {
+                ...codeTool.schema.properties,
+                lang: { ...codeTool.schema.properties.lang, enum: filtered },
+              },
+            };
+          }
+        }
+        return codeTool;
       };
       continue;
     } else if (tool === Tools.file_search) {
