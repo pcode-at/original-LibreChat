@@ -215,9 +215,7 @@ function expandAllowedDomainsEntry(entry: string): string[] {
  */
 export const allowedDomainsSchema = z
   .union([z.string(), z.array(z.string())])
-  .transform((value) =>
-    (Array.isArray(value) ? value : [value]).flatMap(expandAllowedDomainsEntry),
-  )
+  .transform((value) => (Array.isArray(value) ? value : [value]).flatMap(expandAllowedDomainsEntry))
   .optional();
 
 /** Storage backend strategies only — use for config fields that set where files are stored. */
