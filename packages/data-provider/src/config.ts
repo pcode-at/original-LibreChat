@@ -207,13 +207,17 @@ function expandAllowedDomainsEntry(entry: string): string[] {
 }
 
 /**
- * Admin-configured list of allowed domains. Each entry supports `${ENV_VAR}`
- * substitution, and an entry resolving to a comma-separated list is expanded
- * into multiple domains.
+ * Admin-configured list of allowed domains. Accepts either a YAML array of
+ * entries or a single scalar string, so the entire allowlist can be supplied
+ * through one env var (`allowedDomains: '${ALLOWED_DOMAINS}'`). Each entry
+ * supports `${ENV_VAR}` substitution, and an entry resolving to a
+ * comma-separated list is expanded into multiple domains.
  */
 export const allowedDomainsSchema = z
-  .array(z.string())
-  .transform((entries) => entries.flatMap(expandAllowedDomainsEntry))
+  .union([z.string(), z.array(z.string())])
+  .transform((value) =>
+    (Array.isArray(value) ? value : [value]).flatMap(expandAllowedDomainsEntry),
+  )
   .optional();
 
 /** Storage backend strategies only — use for config fields that set where files are stored. */

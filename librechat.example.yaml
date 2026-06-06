@@ -310,6 +310,8 @@ actions:
 #     - 'https://secure.api.com'  # Protocol-restricted
 #     - 'http://internal:8080'    # Protocol and port restricted
 #     - '${MCP_ALLOWED_DOMAINS}'  # Env var (single domain or comma-separated list)
+#   # Or supply the entire list through a single env var (scalar, no list items):
+#   # allowedDomains: '${MCP_ALLOWED_DOMAINS}'   # e.g. MCP_ALLOWED_DOMAINS=localhost,*.example.com
 #   # allowedAddresses is an SSRF exemption list (private-IP-space only).
 #   # Hostname/IP + port pairs listed here bypass the default-deny block for that
 #   # one private service; public destinations remain reachable. Useful when you
