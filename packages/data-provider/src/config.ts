@@ -196,7 +196,8 @@ function stripWrappingQuotes(value: string): string {
 function expandAllowedDomainsEntry(entry: string): string[] {
   const resolved = extractEnvVariable(entry).trim();
   if (!resolved.includes(',')) {
-    return resolved.length > 0 ? [resolved] : [];
+    const single = stripWrappingQuotes(resolved);
+    return single.length > 0 ? [single] : [];
   }
   const body =
     resolved.startsWith('[') && resolved.endsWith(']') ? resolved.slice(1, -1) : resolved;

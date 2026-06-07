@@ -515,6 +515,12 @@ describe('allowedDomainsSchema', () => {
     expect(result).toEqual(['http://mastra:4111']);
   });
 
+  it('strips wrapping quotes from a single env value (e.g. compose-quoted var)', () => {
+    process.env.MCP_ALLOWED_DOMAIN = '"http://mastra:4111"';
+    const result = allowedDomainsSchema.parse(['${MCP_ALLOWED_DOMAIN}']);
+    expect(result).toEqual(['http://mastra:4111']);
+  });
+
   it('expands an env var holding a comma-separated list into multiple domains', () => {
     process.env.MCP_ALLOWED_DOMAINS = 'http://mastra:4111,https://api.example.com,*.foo.com';
     const result = allowedDomainsSchema.parse(['${MCP_ALLOWED_DOMAINS}']);
