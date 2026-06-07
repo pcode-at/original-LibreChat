@@ -172,6 +172,19 @@ https://www.librechat.ai/docs/configuration/stt_tts`);
     customConfig.modelSpecs = result.data.modelSpecs;
   }
 
+  // Carry over fields whose schema applies env-variable substitution (e.g.
+  // `${VAR}` in allowedDomains), since the raw `customConfig` is otherwise
+  // returned with the unresolved placeholders. Mirrors the modelSpecs handling.
+  if (result.data.mcpSettings) {
+    customConfig.mcpSettings = result.data.mcpSettings;
+  }
+  if (result.data.actions) {
+    customConfig.actions = result.data.actions;
+  }
+  if (customConfig.registration && result.data.registration) {
+    customConfig.registration = result.data.registration;
+  }
+
   return customConfig;
 }
 

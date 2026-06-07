@@ -212,12 +212,8 @@ function expandAllowedDomainsEntry(entry: string): string[] {
  * domains. Accepts either a single scalar string or an array; each entry
  * supports `${ENV_VAR}` substitution, and an entry resolving to a
  * comma-separated list is expanded into individual domains.
- *
- * Used both by {@link allowedDomainsSchema} (validation/type) and at runtime by
- * config consumers, since `loadCustomConfig` returns the raw (pre-transform)
- * config object.
  */
-export function resolveAllowedDomains(value?: string | string[] | null): string[] | undefined {
+function resolveAllowedDomains(value?: string | string[] | null): string[] | undefined {
   if (value == null) {
     return undefined;
   }
