@@ -146,3 +146,46 @@ describe('AppService assistants config', () => {
     );
   });
 });
+
+describe('AppService allowedDomains env resolution', () => {
+  const ENV_KEY = 'TEST_MCP_ALLOWED_DOMAINS';
+
+  afterEach(() => {
+    delete process.env[ENV_KEY];
+  });
+
+  it('resolves ${ENV_VAR} and expands a comma-separated list in mcpSettings.allowedDomains', async () => {
+    process.env[ENV_KEY] = 'http://mastra:4111,https://api.example.com';
+    const config = {
+      mcpSettings: { allowedDomains: ['${TEST_MCP_ALLOWED_DOMAINS}'] },
+    } as DeepPartial<TCustomConfig>;
+
+    const result = await AppService({ config });
+
+    expect(result.mcpSettings?.allowedDomains).toEqual([
+      'http://mastra:4111',
+      'https://api.example.com',
+    ]);
+  });
+
+  it('resolves env references in actions.allowedDomains', async () => {
+    process.env[ENV_KEY] = 'a.com,b.com';
+    const config = {
+      actions: { allowedDomains: ['${TEST_MCP_ALLOWED_DOMAINS}'] },
+    } as DeepPartial<TCustomConfig>;
+
+    const result = await AppService({ config });
+
+    expect(result.actions?.allowedDomains).toEqual(['a.com', 'b.com']);
+  });
+
+  it('leaves literal domains untouched', async () => {
+    const config = {
+      mcpSettings: { allowedDomains: ['http://mastra:4111', '*.example.com'] },
+    } as DeepPartial<TCustomConfig>;
+
+    const result = await AppService({ config });
+
+    expect(result.mcpSettings?.allowedDomains).toEqual(['http://mastra:4111', '*.example.com']);
+  });
+});

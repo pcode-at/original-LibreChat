@@ -1,6 +1,7 @@
 import {
   EModelEndpoint,
   getConfigDefaults,
+  resolveAllowedDomains,
   summarizationConfigSchema,
 } from 'librechat-data-provider';
 import type { TCustomConfig, FileSources, DeepPartial } from 'librechat-data-provider';
@@ -65,6 +66,27 @@ export type Paths = {
 };
 
 /**
+ * Resolves `${ENV_VAR}` references (and comma-separated list expansion) in a
+ * config section's `allowedDomains`. Applied at runtime because
+ * `loadCustomConfig` returns the raw, pre-transform config object, so the
+ * `allowedDomainsSchema` transform never reaches consumers.
+ */
+function withResolvedAllowedDomains<T extends { allowedDomains?: string | string[] }>(
+  section: T,
+): T;
+function withResolvedAllowedDomains<T extends { allowedDomains?: string | string[] }>(
+  section: T | null | undefined,
+): T | null | undefined;
+function withResolvedAllowedDomains<T extends { allowedDomains?: string | string[] }>(
+  section: T | null | undefined,
+): T | null | undefined {
+  if (!section || section.allowedDomains == null) {
+    return section;
+  }
+  return { ...section, allowedDomains: resolveAllowedDomains(section.allowedDomains) };
+}
+
+/**
  * Loads custom config and initializes app-wide variables.
  * @function AppService
  */
@@ -104,9 +126,11 @@ export const AppService = async (params?: {
   const availableTools = systemTools;
 
   const mcpServersConfig = config.mcpServers || null;
-  const mcpSettings = config.mcpSettings || null;
-  const actions = config.actions;
-  const registration = config.registration ?? configDefaults.registration;
+  const mcpSettings = withResolvedAllowedDomains(config.mcpSettings) || null;
+  const actions = withResolvedAllowedDomains(config.actions);
+  const registration = withResolvedAllowedDomains(
+    config.registration ?? configDefaults.registration,
+  );
   const interfaceConfig = await loadDefaultInterface({ config, configDefaults });
   const turnstileConfig = loadTurnstileConfig(config, configDefaults);
   const speech = config.speech;

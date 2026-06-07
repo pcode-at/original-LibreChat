@@ -207,6 +207,24 @@ function expandAllowedDomainsEntry(entry: string): string[] {
 }
 
 /**
+ * Resolves an admin-configured allowed-domains value into a flat list of
+ * domains. Accepts either a single scalar string or an array; each entry
+ * supports `${ENV_VAR}` substitution, and an entry resolving to a
+ * comma-separated list is expanded into individual domains.
+ *
+ * Used both by {@link allowedDomainsSchema} (validation/type) and at runtime by
+ * config consumers, since `loadCustomConfig` returns the raw (pre-transform)
+ * config object.
+ */
+export function resolveAllowedDomains(value?: string | string[] | null): string[] | undefined {
+  if (value == null) {
+    return undefined;
+  }
+  const entries = Array.isArray(value) ? value : [value];
+  return entries.flatMap(expandAllowedDomainsEntry);
+}
+
+/**
  * Admin-configured list of allowed domains. Accepts either a YAML array of
  * entries or a single scalar string, so the entire allowlist can be supplied
  * through one env var (`allowedDomains: '${ALLOWED_DOMAINS}'`). Each entry
@@ -215,7 +233,7 @@ function expandAllowedDomainsEntry(entry: string): string[] {
  */
 export const allowedDomainsSchema = z
   .union([z.string(), z.array(z.string())])
-  .transform((value) => (Array.isArray(value) ? value : [value]).flatMap(expandAllowedDomainsEntry))
+  .transform((value) => resolveAllowedDomains(value) ?? [])
   .optional();
 
 /** Storage backend strategies only — use for config fields that set where files are stored. */
