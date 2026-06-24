@@ -476,4 +476,64 @@ describe('loadCustomConfig', () => {
       ]);
     });
   });
+
+  describe('env-variable resolution in allowedDomains', () => {
+    afterEach(() => {
+      delete process.env.TEST_MCP_ALLOWED_DOMAINS;
+    });
+
+    it('resolves ${ENV_VAR} and expands a comma-separated list in mcpSettings.allowedDomains', async () => {
+      process.env.CONFIG_PATH = 'validConfig.yaml';
+      process.env.TEST_MCP_ALLOWED_DOMAINS = 'http://mastra:4111,https://api.example.com';
+      loadYaml.mockReturnValueOnce({
+        version: '1.0',
+        mcpSettings: { allowedDomains: ['${TEST_MCP_ALLOWED_DOMAINS}'] },
+      });
+
+      const result = await loadCustomConfig();
+
+      expect(result.mcpSettings.allowedDomains).toEqual([
+        'http://mastra:4111',
+        'https://api.example.com',
+      ]);
+    });
+
+    it('resolves a single scalar env var into the full list', async () => {
+      process.env.CONFIG_PATH = 'validConfig.yaml';
+      process.env.TEST_MCP_ALLOWED_DOMAINS = 'http://mastra:4111';
+      loadYaml.mockReturnValueOnce({
+        version: '1.0',
+        mcpSettings: { allowedDomains: '${TEST_MCP_ALLOWED_DOMAINS}' },
+      });
+
+      const result = await loadCustomConfig();
+
+      expect(result.mcpSettings.allowedDomains).toEqual(['http://mastra:4111']);
+    });
+
+    it('resolves env references in actions.allowedDomains', async () => {
+      process.env.CONFIG_PATH = 'validConfig.yaml';
+      process.env.TEST_MCP_ALLOWED_DOMAINS = 'a.com,b.com';
+      loadYaml.mockReturnValueOnce({
+        version: '1.0',
+        actions: { allowedDomains: ['${TEST_MCP_ALLOWED_DOMAINS}'] },
+      });
+
+      const result = await loadCustomConfig();
+
+      expect(result.actions.allowedDomains).toEqual(['a.com', 'b.com']);
+    });
+
+    it('leaves literal domains untouched', async () => {
+      process.env.CONFIG_PATH = 'validConfig.yaml';
+      loadYaml.mockReturnValueOnce({
+        version: '1.0',
+        mcpSettings: { allowedDomains: ['http://mastra:4111', '*.example.com'] },
+      });
+
+      const result = await loadCustomConfig();
+
+      expect(result.mcpSettings.allowedDomains).toEqual(['http://mastra:4111', '*.example.com']);
+    });
+  });
 });

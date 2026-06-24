@@ -340,6 +340,9 @@ actions:
 # public destination not also listed.
 # Supports wildcards: '*.example.com' matches 'api.example.com', 'staging.example.com', etc.
 # Supports protocol/port restrictions: 'https://api.example.com:8443' restricts to specific protocol/port.
+# Supports '${ENV_VAR}' references; a referenced env var holding a comma-separated
+# list (optionally wrapped in '[ ]') is expanded into multiple domains, e.g.
+# ALLOWED_DOMAINS='http://internal:8080,https://secure.api.com'.
 # mcpSettings:
 #   allowedDomains:
 #     - 'host.docker.internal'    # Docker host access (required for Docker setups)
@@ -347,6 +350,9 @@ actions:
 #     - '*.example.com'           # Wildcard subdomain
 #     - 'https://secure.api.com'  # Protocol-restricted
 #     - 'http://internal:8080'    # Protocol and port restricted
+#     - '${MCP_ALLOWED_DOMAINS}'  # Env var (single domain or comma-separated list)
+#   # Or supply the entire list through a single env var (scalar, no list items):
+#   # allowedDomains: '${MCP_ALLOWED_DOMAINS}'   # e.g. MCP_ALLOWED_DOMAINS=localhost,*.example.com
 #   # allowedAddresses is an SSRF exemption list (private-IP-space only).
 #   # Hostname/IP + port pairs listed here bypass the default-deny block for that
 #   # one private service; public destinations remain reachable. Useful when you

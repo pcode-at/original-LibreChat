@@ -14,6 +14,7 @@ import { REFILL_INTERVAL_UNITS } from './balance';
 import { fileConfigSchema } from './file-config';
 import { apiBaseUrl } from './api-endpoints';
 import { FileSources } from './types/files';
+import { extractEnvVariable } from './utils';
 import { MCPServersSchema } from './mcp';
 export { MAX_SUBAGENTS } from './limits';
 
@@ -183,6 +184,57 @@ const allowedAddressEntrySchema = z
   );
 
 export const allowedAddressesSchema = z.array(allowedAddressEntrySchema).optional();
+
+function stripWrappingQuotes(value: string): string {
+  return value.replace(/^["']|["']$/g, '').trim();
+}
+
+/**
+ * Resolves a single `allowedDomains` entry. Admin-supplied entries may reference
+ * an environment variable (`${ENV_VAR}`); when the resolved value is a
+ * comma-separated list (optionally wrapped in `[ ]`), it is expanded into
+ * individual domains. This lets operators keep the entire allowlist in one env
+ * var, e.g. `ALLOWED_DOMAINS=https://a.com,https://b.com`.
+ */
+function expandAllowedDomainsEntry(entry: string): string[] {
+  const resolved = extractEnvVariable(entry).trim();
+  if (!resolved.includes(',')) {
+    const single = stripWrappingQuotes(resolved);
+    return single.length > 0 ? [single] : [];
+  }
+  const body =
+    resolved.startsWith('[') && resolved.endsWith(']') ? resolved.slice(1, -1) : resolved;
+  return body
+    .split(',')
+    .map((domain) => stripWrappingQuotes(domain.trim()))
+    .filter((domain) => domain.length > 0);
+}
+
+/**
+ * Resolves an admin-configured allowed-domains value into a flat list of
+ * domains. Accepts either a single scalar string or an array; each entry
+ * supports `${ENV_VAR}` substitution, and an entry resolving to a
+ * comma-separated list is expanded into individual domains.
+ */
+function resolveAllowedDomains(value?: string | string[] | null): string[] | undefined {
+  if (value == null) {
+    return undefined;
+  }
+  const entries = Array.isArray(value) ? value : [value];
+  return entries.flatMap(expandAllowedDomainsEntry);
+}
+
+/**
+ * Admin-configured list of allowed domains. Accepts either a YAML array of
+ * entries or a single scalar string, so the entire allowlist can be supplied
+ * through one env var (`allowedDomains: '${ALLOWED_DOMAINS}'`). Each entry
+ * supports `${ENV_VAR}` substitution, and an entry resolving to a
+ * comma-separated list is expanded into multiple domains.
+ */
+export const allowedDomainsSchema = z
+  .union([z.string(), z.array(z.string())])
+  .transform((value) => resolveAllowedDomains(value) ?? [])
+  .optional();
 
 /** Storage backend strategies only — use for config fields that set where files are stored. */
 const FILE_STORAGE_BACKENDS = [
@@ -1716,7 +1768,7 @@ export const configSchema = z.object({
   mcpServers: MCPServersSchema.optional(),
   mcpSettings: z
     .object({
-      allowedDomains: z.array(z.string()).optional(),
+      allowedDomains: allowedDomainsSchema,
       allowedAddresses: allowedAddressesSchema,
     })
     .optional(),
@@ -1727,14 +1779,14 @@ export const configSchema = z.object({
   cloudfront: cloudfrontConfigSchema,
   actions: z
     .object({
-      allowedDomains: z.array(z.string()).optional(),
+      allowedDomains: allowedDomainsSchema,
       allowedAddresses: allowedAddressesSchema,
     })
     .optional(),
   registration: z
     .object({
       socialLogins: z.array(z.string()).optional(),
-      allowedDomains: z.array(z.string()).optional(),
+      allowedDomains: allowedDomainsSchema,
     })
     .default({ socialLogins: defaultSocialLogins }),
   balance: balanceSchema.optional(),

@@ -3,6 +3,7 @@ import { EModelEndpoint, isDocumentSupportedProvider } from './schemas';
 import { getEndpointFileConfig, mergeFileConfig } from './file-config';
 import {
   allowedAddressesSchema,
+  allowedDomainsSchema,
   configSchema,
   excludedKeys,
   resolveEndpointType,
@@ -491,6 +492,103 @@ describe('allowedAddressesSchema', () => {
       });
       expect(result.success).toBe(false);
     });
+  });
+});
+
+describe('allowedDomainsSchema', () => {
+  const ENV_KEYS = ['MCP_ALLOWED_DOMAIN', 'MCP_ALLOWED_DOMAINS'] as const;
+
+  afterEach(() => {
+    for (const key of ENV_KEYS) {
+      delete process.env[key];
+    }
+  });
+
+  it('passes through literal domains unchanged', () => {
+    const result = allowedDomainsSchema.parse(['http://mastra:4111', '*.example.com']);
+    expect(result).toEqual(['http://mastra:4111', '*.example.com']);
+  });
+
+  it('resolves a single ${ENV_VAR} reference to one domain', () => {
+    process.env.MCP_ALLOWED_DOMAIN = 'http://mastra:4111';
+    const result = allowedDomainsSchema.parse(['${MCP_ALLOWED_DOMAIN}']);
+    expect(result).toEqual(['http://mastra:4111']);
+  });
+
+  it('strips wrapping quotes from a single env value (e.g. compose-quoted var)', () => {
+    process.env.MCP_ALLOWED_DOMAIN = '"http://mastra:4111"';
+    const result = allowedDomainsSchema.parse(['${MCP_ALLOWED_DOMAIN}']);
+    expect(result).toEqual(['http://mastra:4111']);
+  });
+
+  it('expands an env var holding a comma-separated list into multiple domains', () => {
+    process.env.MCP_ALLOWED_DOMAINS = 'http://mastra:4111,https://api.example.com,*.foo.com';
+    const result = allowedDomainsSchema.parse(['${MCP_ALLOWED_DOMAINS}']);
+    expect(result).toEqual(['http://mastra:4111', 'https://api.example.com', '*.foo.com']);
+  });
+
+  it('expands a bracket-wrapped, whitespace-padded, quoted list', () => {
+    process.env.MCP_ALLOWED_DOMAINS = '["http://mastra:4111", \'https://api.example.com\']';
+    const result = allowedDomainsSchema.parse(['${MCP_ALLOWED_DOMAINS}']);
+    expect(result).toEqual(['http://mastra:4111', 'https://api.example.com']);
+  });
+
+  it('accepts a single scalar string and expands it into a list', () => {
+    process.env.MCP_ALLOWED_DOMAINS = 'host.docker.internal,localhost,*.example.com';
+    const result = allowedDomainsSchema.parse('${MCP_ALLOWED_DOMAINS}');
+    expect(result).toEqual(['host.docker.internal', 'localhost', '*.example.com']);
+  });
+
+  it('accepts a single scalar literal domain', () => {
+    const result = allowedDomainsSchema.parse('http://mastra:4111');
+    expect(result).toEqual(['http://mastra:4111']);
+  });
+
+  it('resolves a scalar env var through configSchema on mcpSettings', () => {
+    process.env.MCP_ALLOWED_DOMAINS = 'http://mastra:4111,https://api.example.com';
+    const result = configSchema.safeParse({
+      version: '1.0',
+      mcpSettings: { allowedDomains: '${MCP_ALLOWED_DOMAINS}' },
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.mcpSettings?.allowedDomains).toEqual([
+        'http://mastra:4111',
+        'https://api.example.com',
+      ]);
+    }
+  });
+
+  it('combines literal entries with an expanded env var list', () => {
+    process.env.MCP_ALLOWED_DOMAINS = 'https://a.com,https://b.com';
+    const result = allowedDomainsSchema.parse(['http://mastra:4111', '${MCP_ALLOWED_DOMAINS}']);
+    expect(result).toEqual(['http://mastra:4111', 'https://a.com', 'https://b.com']);
+  });
+
+  it('keeps the placeholder literal when the env var is undefined (fail-closed)', () => {
+    const result = allowedDomainsSchema.parse(['${MCP_ALLOWED_DOMAINS}']);
+    expect(result).toEqual(['${MCP_ALLOWED_DOMAINS}']);
+  });
+
+  it('drops empty entries produced by trailing/duplicate commas', () => {
+    process.env.MCP_ALLOWED_DOMAINS = 'https://a.com,,https://b.com,';
+    const result = allowedDomainsSchema.parse(['${MCP_ALLOWED_DOMAINS}']);
+    expect(result).toEqual(['https://a.com', 'https://b.com']);
+  });
+
+  it('resolves env vars through configSchema on mcpSettings', () => {
+    process.env.MCP_ALLOWED_DOMAINS = 'http://mastra:4111,https://api.example.com';
+    const result = configSchema.safeParse({
+      version: '1.0',
+      mcpSettings: { allowedDomains: ['${MCP_ALLOWED_DOMAINS}'] },
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.mcpSettings?.allowedDomains).toEqual([
+        'http://mastra:4111',
+        'https://api.example.com',
+      ]);
+    }
   });
 });
 
