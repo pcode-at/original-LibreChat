@@ -11,6 +11,7 @@ import type {
   TConversation,
   TEndpointsConfig,
   TMessageContentParts,
+  TEditedContent,
 } from 'librechat-data-provider';
 
 /**
@@ -306,3 +307,59 @@ export const preserveStreamedContentIdentity = (
  * must keep using the live index. */
 export const getPartKeyIndex = (part: TMessageContentParts | undefined, idx: number): number =>
   part?.streamedIndex ?? idx;
+
+/** The plain text of a message: its `text`, else its text parts joined by line. */
+export const getAllContentText = (message?: TMessage | null): string => {
+  if (!message) {
+    return '';
+  }
+
+  if (message.text) {
+    return message.text;
+  }
+
+  if (message.content && message.content.length > 0) {
+    return message.content
+      .filter((part) => part != null && part.type === ContentTypes.TEXT)
+      .map((part) => {
+        if (!('text' in part)) return '';
+        const text = part.text;
+        if (typeof text === 'string') return text;
+        return text?.value || '';
+      })
+      .filter((text) => text.length > 0)
+      .join('\n');
+  }
+
+  return '';
+};
+
+/**
+ * A reply's parts as an edited rerun starts from them: the retained prefix with its stamps off
+ * and the edited part's text replaced, on copies, so the cached message keeps its own parts. An
+ * edited thought also loses the title generated for the text it no longer holds.
+ */
+export function withEditedPart(
+  content: TMessageContentParts[],
+  edited: TEditedContent,
+): TMessageContentParts[] {
+  const next = [...stripStreamedIndexStamps(content)];
+  const { index } = edited;
+  if (index < 0 || index >= next.length) {
+    return next;
+  }
+  const part = { ...next[index] };
+  next[index] = part;
+  if (edited.type === ContentTypes.THINK && part.type === ContentTypes.THINK) {
+    part[ContentTypes.THINK] = edited[ContentTypes.THINK];
+    delete part.reasoning_label;
+    delete part.reasoning_label_step_id;
+    delete part.reasoning_label_attempts;
+    delete part.reasoning_label_submitted_chars;
+    delete part.reasoning_label_revision;
+    delete part.reasoning_label_status;
+  } else if (edited.type === ContentTypes.TEXT && part.type === ContentTypes.TEXT) {
+    part[ContentTypes.TEXT] = edited[ContentTypes.TEXT];
+  }
+  return next;
+}
